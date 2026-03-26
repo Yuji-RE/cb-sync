@@ -1,0 +1,22 @@
+[package]
+name = "cb-core"
+description = "Core library for cb-sync: clipboard abstraction and sync protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+chacha20poly1305.workspace = true
+rand.workspace = true
+base64.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+clipboard-win.workspace = true
