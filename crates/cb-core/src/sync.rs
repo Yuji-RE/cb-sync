@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, instrument, warn};
 
@@ -20,6 +20,9 @@ pub const DEFAULT_PORT: u16 = 34812;
 
 /// Timeout for receiving clipboard data (20 seconds as per spec)
 pub const CLIPBOARD_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// Maximum message size to prevent DoS attacks (100 MiB for large images)
+pub const MAX_MESSAGE_SIZE: u64 = 100 * 1024 * 1024;
 
 /// Result type for sync operations
 pub type Result<T> = std::result::Result<T, SyncError>;
@@ -74,8 +77,9 @@ async fn send_internal(addr: SocketAddr, msg: Message) -> Result<()> {
         msg.content_type()
     );
 
-    // Wait for ack
-    let mut reader = BufReader::new(&mut stream);
+    // Wait for ack (limit read size to prevent DoS)
+    let limited = (&mut stream).take(1024); // ACK is small
+    let mut reader = BufReader::new(limited);
     let mut line = String::new();
     reader.read_line(&mut line).await?;
 
@@ -149,12 +153,18 @@ async fn receive_once_content_internal(
 
     info!("Connection from {}", peer);
 
-    let mut reader = BufReader::new(&mut stream);
+    // Limit message size to prevent DoS attacks
+    let limited = (&mut stream).take(MAX_MESSAGE_SIZE);
+    let mut reader = BufReader::new(limited);
     let mut line = String::new();
 
     tokio::time::timeout(CLIPBOARD_TIMEOUT, reader.read_line(&mut line))
         .await
         .map_err(|_| SyncError::Timeout)??;
+
+    if line.is_empty() {
+        return Err(SyncError::UnexpectedMessage);
+    }
 
     let msg = Message::from_bytes(line.as_bytes())?;
     let content = extract_content(&msg, key)?;
@@ -231,10 +241,12 @@ where
         match accept_result {
             Ok(Ok((mut stream, peer))) => {
                 debug!("Connection from {}", peer);
-                let mut reader = BufReader::new(&mut stream);
+                // Limit message size to prevent DoS attacks
+                let limited = (&mut stream).take(MAX_MESSAGE_SIZE);
+                let mut reader = BufReader::new(limited);
                 let mut line = String::new();
 
-                if reader.read_line(&mut line).await.is_ok()
+                if reader.read_line(&mut line).await.is_ok() && !line.is_empty()
                     && let Ok(msg) = Message::from_bytes(line.as_bytes())
                 {
                     if let Ok(content) = extract_content(&msg, key) {

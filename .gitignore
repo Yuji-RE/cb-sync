@@ -3,3 +3,18 @@ Cargo.lock
 
 # Local settings (may contain personal paths)
 .claude/settings.local.json
+
+# Environment files (may contain secrets)
+.env
+.env.*
+.env.local
+
+# Secret/key files
+*.key
+*.pem
+*.p12
+secrets/
+
+# Config files that may contain passwords
+config.toml
+cb-sync.toml

@@ -62,10 +62,10 @@ impl Default for GeneralConfig {
 }
 
 /// Encryption settings
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EncryptionConfig {
-    /// Encryption password (derived to key using SHA256)
+    /// Encryption password (derived to key using Argon2id)
     pub password: Option<String>,
     /// Encryption key in base64 format
     pub key: Option<String>,
@@ -75,6 +75,16 @@ impl EncryptionConfig {
     /// Check if encryption is configured
     pub fn is_enabled(&self) -> bool {
         self.password.is_some() || self.key.is_some()
+    }
+}
+
+// Custom Debug implementation to avoid exposing secrets in logs
+impl std::fmt::Debug for EncryptionConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EncryptionConfig")
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .field("key", &self.key.as_ref().map(|_| "[REDACTED]"))
+            .finish()
     }
 }
 
@@ -131,14 +141,34 @@ impl Config {
     }
 
     /// Save config to a specific path
+    ///
+    /// On Unix systems, sets file permissions to 600 (owner read/write only)
+    /// since the config may contain passwords or encryption keys.
     pub fn save_to(&self, path: &PathBuf) -> Result<(), ConfigError> {
-        // Create parent directory if needed
+        // Create parent directory if needed (with restricted permissions on Unix)
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(ConfigError::Io)?;
+
+            // Set directory permissions to 700 on Unix
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let dir_perms = fs::Permissions::from_mode(0o700);
+                fs::set_permissions(parent, dir_perms).map_err(ConfigError::Io)?;
+            }
         }
 
         let content = toml::to_string_pretty(self).map_err(ConfigError::Serialize)?;
         fs::write(path, content).map_err(ConfigError::Io)?;
+
+        // Set file permissions to 600 on Unix (contains secrets)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let file_perms = fs::Permissions::from_mode(0o600);
+            fs::set_permissions(path, file_perms).map_err(ConfigError::Io)?;
+        }
+
         Ok(())
     }
 

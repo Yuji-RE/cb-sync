@@ -244,13 +244,20 @@ async fn main() -> Result<()> {
                 sync::send_content_encrypted(addr, content, k).await?;
                 eprintln!("Sent {} to {} (encrypted)", content_desc, addr);
             } else {
+                eprintln!("\x1b[33mWarning: Sending WITHOUT encryption!\x1b[0m");
+                eprintln!("  Use: cb-sync keygen to generate an encryption key");
                 sync::send_content(addr, content).await?;
-                eprintln!("Sent {} to {}", content_desc, addr);
+                eprintln!("Sent {} to {} (unencrypted)", content_desc, addr);
             }
         }
 
         Some(Commands::Receive { bind, output }) => {
             let addr = parse_addr(&bind, port)?;
+
+            if key.is_none() {
+                eprintln!("\x1b[33mWarning: Receiving WITHOUT encryption!\x1b[0m");
+                eprintln!("  Use: cb-sync keygen to generate an encryption key");
+            }
 
             eprintln!(
                 "Waiting for clipboard data on {}{}...",
@@ -269,6 +276,11 @@ async fn main() -> Result<()> {
 
         Some(Commands::Listen { bind, image_dir }) => {
             let addr = parse_addr(&bind, port)?;
+
+            if key.is_none() {
+                eprintln!("\x1b[33mWarning: Listening WITHOUT encryption!\x1b[0m");
+                eprintln!("  Use: cb-sync keygen to generate an encryption key");
+            }
 
             eprintln!(
                 "Listening on {}{}...",
@@ -299,8 +311,13 @@ async fn main() -> Result<()> {
             let key = generate_key();
             let encoded = key_to_base64(&key);
             println!("{}", encoded);
-            eprintln!("Use: cb-sync -k '{}' send/receive/listen", encoded);
-            eprintln!("Or:  export CB_SYNC_KEY='{}'", encoded);
+            eprintln!();
+            eprintln!("Add to config file (~/.config/cb-sync/config.toml):");
+            eprintln!("  [encryption]");
+            eprintln!("  key = \"<paste key above>\"");
+            eprintln!();
+            eprintln!("Or use directly (note: visible in process list):");
+            eprintln!("  cb-sync -k '<KEY>' send/receive/listen");
         }
 
         Some(Commands::Config { action }) => match action {

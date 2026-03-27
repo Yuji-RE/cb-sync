@@ -1,7 +1,9 @@
 //! Encryption utilities using ChaCha20-Poly1305
 //!
 //! Provides symmetric encryption for clipboard data using a shared secret.
+//! Key derivation uses Argon2id for password-based keys.
 
+use argon2::{Argon2, Algorithm, Params, Version};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chacha20poly1305::{
     ChaCha20Poly1305, Nonce,
@@ -17,6 +19,10 @@ pub type Result<T> = std::result::Result<T, CryptoError>;
 /// Encryption key (256 bits)
 pub type Key = [u8; 32];
 
+/// Application-specific salt for password-based key derivation
+/// This provides domain separation; for stronger security, use random salt per message
+const APP_SALT: &[u8; 16] = b"cb-sync-v1-salt!";
+
 /// Generate a new random encryption key
 pub fn generate_key() -> Key {
     let mut key = [0u8; 32];
@@ -24,22 +30,20 @@ pub fn generate_key() -> Key {
     key
 }
 
-/// Derive a key from a password using a simple hash
-/// Note: For production, use a proper KDF like Argon2
+/// Derive a key from a password using Argon2id
+///
+/// Uses application-specific fixed salt for simplicity.
+/// Argon2id parameters are tuned for interactive use (fast but still secure).
 pub fn key_from_password(password: &str) -> Key {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    // Argon2id with moderate parameters for interactive use
+    // m=19456 KiB (19 MiB), t=2 iterations, p=1 parallelism
+    let params = Params::new(19456, 2, 1, Some(32)).expect("valid Argon2 params");
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
 
     let mut key = [0u8; 32];
-    let mut hasher = DefaultHasher::new();
-
-    // Hash the password multiple times to fill 32 bytes
-    for i in 0..4 {
-        password.hash(&mut hasher);
-        i.hash(&mut hasher);
-        let hash = hasher.finish().to_le_bytes();
-        key[i * 8..(i + 1) * 8].copy_from_slice(&hash);
-    }
+    argon2
+        .hash_password_into(password.as_bytes(), APP_SALT, &mut key)
+        .expect("Argon2 hashing should not fail with valid params");
 
     key
 }
