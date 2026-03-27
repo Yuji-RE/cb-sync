@@ -26,6 +26,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chacha20poly1305 = "0.10"
 rand = "0.8"
 base64 = "0.22"
+sha2 = "0.10"
 
 # Windows-specific dependencies
 [workspace.dependencies.clipboard-win]

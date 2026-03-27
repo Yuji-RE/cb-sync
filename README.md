@@ -180,9 +180,12 @@ cb-sync/
 │   │   ├── clipboard.rs # Platform clipboard abstraction
 │   │   ├── config.rs    # Configuration file handling
 │   │   ├── crypto.rs    # ChaCha20-Poly1305 encryption
+│   │   ├── daemon.rs    # Auto-sync daemon
 │   │   ├── protocol.rs  # Message types (JSON)
 │   │   └── sync.rs      # TCP send/receive
 │   └── cb-cli/          # CLI application
+├── contrib/
+│   └── systemd/         # systemd service files
 └── docs/
     └── PLAN.md          # Development roadmap
 ```
@@ -210,12 +213,58 @@ cb-sync/
 {"type":"ack"}
 ```
 
+## Daemon Mode (Auto-sync)
+
+For automatic bidirectional clipboard sync, use daemon mode:
+
+```bash
+# Start daemon (requires encryption)
+cb-sync daemon
+
+# With verbose logging
+cb-sync daemon -vv
+```
+
+### Daemon Configuration
+
+Add to `~/.config/cb-sync/config.toml`:
+
+```toml
+[encryption]
+password = "<PASSWORD>"
+
+[targets]
+desktop = "<DESKTOP_IP>"
+laptop = "<LAPTOP_IP>"
+
+[daemon]
+peers = ["desktop", "laptop"]
+poll_interval_ms = 500       # Clipboard check interval
+sync_cooldown_ms = 2000      # Loop prevention cooldown
+```
+
+### systemd Service (Linux)
+
+```bash
+# Install user service
+cd contrib/systemd && ./install.sh
+
+# Enable and start
+systemctl --user enable cb-sync
+systemctl --user start cb-sync
+
+# View logs
+journalctl --user -u cb-sync -f
+```
+
 ## Security
 
-- **Explicit activation**: No background daemon - you control when to sync
-- **Encryption**: ChaCha20-Poly1305 for all network traffic
+- **Encryption required in daemon mode**: Plaintext sync is rejected
+- **Explicit activation**: Manual commands give you full control
+- **ChaCha20-Poly1305**: Authenticated encryption for all traffic
 - **LAN only**: No internet connectivity required
 - **20s timeout**: Listener auto-closes to minimize exposure
+- **Loop prevention**: Received content is not re-broadcast
 
 ## Future Roadmap
 

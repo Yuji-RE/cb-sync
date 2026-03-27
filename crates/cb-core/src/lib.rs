@@ -43,6 +43,7 @@
 pub mod clipboard;
 pub mod config;
 pub mod crypto;
+pub mod daemon;
 pub mod error;
 pub mod protocol;
 pub mod sync;
@@ -54,7 +55,10 @@ pub use clipboard::{
     Clipboard, ClipboardContent, DisplayServer, WaylandClipboard, X11Clipboard, create_clipboard,
     detect_display_server,
 };
-pub use config::{Config, ConfigError, EncryptionConfig, GeneralConfig, TargetConfig};
+pub use config::{
+    Config, ConfigError, DaemonConfig, EncryptionConfig, GeneralConfig, TargetConfig,
+};
 pub use crypto::{generate_key, key_from_base64, key_from_password, key_to_base64};
+pub use daemon::Daemon;
 pub use error::{ClipboardError, CryptoError, SyncError};
 pub use sync::DEFAULT_PORT;

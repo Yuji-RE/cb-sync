@@ -1,0 +1,27 @@
+[Unit]
+Description=cb-sync clipboard synchronization daemon
+Documentation=https://github.com/<YOUR_USERNAME>/cb-sync
+After=network.target graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/cb-sync daemon
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/cb-sync
+PrivateTmp=yes
+
+# Environment for clipboard access (WAYLAND_DISPLAY or DISPLAY)
+# These are typically set by the graphical session
+# If needed, uncomment and set manually:
+# Environment=WAYLAND_DISPLAY=wayland-0
+# Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target

@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use cb_core::{
-    ClipboardContent, ClipboardError, Config, create_clipboard, generate_key, key_from_base64,
-    key_from_password, key_to_base64, sync,
+    ClipboardContent, ClipboardError, Config, Daemon, create_clipboard, generate_key,
+    key_from_base64, key_from_password, key_to_base64, sync,
 };
 use clap::{Parser, Subcommand};
 use tracing::Level;
@@ -98,6 +98,21 @@ enum Commands {
 
     /// Show detected display server and environment info
     Info,
+
+    /// Run as daemon for automatic bidirectional clipboard sync
+    Daemon {
+        /// Bind address for incoming connections (default: 0.0.0.0)
+        #[arg(short, long, default_value = "0.0.0.0")]
+        bind: String,
+
+        /// Override peers from config (comma-separated target names)
+        #[arg(long, value_delimiter = ',')]
+        peers: Option<Vec<String>>,
+
+        /// Override poll interval in milliseconds
+        #[arg(long)]
+        poll_interval: Option<u64>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -430,6 +445,54 @@ async fn main() -> Result<()> {
                     Err(e) => println!("Clipboard: error ({})", e),
                 }
             }
+        }
+
+        Some(Commands::Daemon {
+            bind,
+            peers,
+            poll_interval,
+        }) => {
+            // Daemon mode requires encryption
+            let key = key.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Daemon mode requires encryption.\n\n\
+                     Set password or key in config file (~/.config/cb-sync/config.toml):\n\n\
+                     [encryption]\n\
+                     password = \"<PASSWORD>\"\n\n\
+                     Or generate a key with: cb-sync keygen"
+                )
+            })?;
+
+            // Get daemon config, allowing CLI overrides
+            let mut daemon_config = config.daemon.clone();
+            if let Some(interval) = poll_interval {
+                daemon_config.poll_interval_ms = interval;
+            }
+
+            // Resolve peers
+            let peer_names = peers.as_ref().unwrap_or(&daemon_config.peers);
+            if peer_names.is_empty() {
+                bail!(
+                    "No peers configured.\n\n\
+                     Add peers to config file (~/.config/cb-sync/config.toml):\n\n\
+                     [targets]\n\
+                     desktop = \"<DESKTOP_IP>\"\n\
+                     laptop = \"<LAPTOP_IP>\"\n\n\
+                     [daemon]\n\
+                     peers = [\"desktop\", \"laptop\"]"
+                );
+            }
+
+            let mut peer_addrs = Vec::new();
+            for name in peer_names {
+                let addr = resolve_target(name, &config, port)?;
+                peer_addrs.push(addr);
+            }
+
+            let bind_addr = parse_addr(&bind, port)?;
+
+            let daemon = Daemon::new(daemon_config, key, peer_addrs, bind_addr);
+            daemon.run().await?;
         }
 
         None => {

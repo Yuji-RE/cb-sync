@@ -3,7 +3,7 @@
 //! Provides symmetric encryption for clipboard data using a shared secret.
 //! Key derivation uses Argon2id for password-based keys.
 
-use argon2::{Argon2, Algorithm, Params, Version};
+use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chacha20poly1305::{
     ChaCha20Poly1305, Nonce,

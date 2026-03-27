@@ -20,6 +20,10 @@
 //! default = "<DEFAULT_IP>"
 //! home = "<HOME_IP>"
 //! work = "<WORK_IP>"
+//!
+//! [daemon]
+//! peers = ["home", "work"]
+//! poll_interval_ms = 500
 //! ```
 
 use std::collections::HashMap;
@@ -37,6 +41,7 @@ pub struct Config {
     pub general: GeneralConfig,
     pub encryption: EncryptionConfig,
     pub targets: TargetConfig,
+    pub daemon: DaemonConfig,
 }
 
 /// General settings
@@ -97,6 +102,38 @@ pub struct TargetConfig {
     /// Named targets (e.g., "home" -> "<TARGET_IP>")
     #[serde(flatten)]
     pub named: HashMap<String, String>,
+}
+
+/// Daemon mode settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DaemonConfig {
+    /// Peers to sync with (target names from [targets] section)
+    pub peers: Vec<String>,
+
+    /// Clipboard polling interval in milliseconds (default: 500)
+    pub poll_interval_ms: u64,
+
+    /// Sync cooldown period in milliseconds to prevent loops (default: 2000)
+    pub sync_cooldown_ms: u64,
+
+    /// Maximum retries when sending to a peer (default: 3)
+    pub max_retries: u32,
+
+    /// Retry delay in milliseconds (default: 1000)
+    pub retry_delay_ms: u64,
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            peers: Vec::new(),
+            poll_interval_ms: 500,
+            sync_cooldown_ms: 2000,
+            max_retries: 3,
+            retry_delay_ms: 1000,
+        }
+    }
 }
 
 impl TargetConfig {
@@ -203,6 +240,20 @@ verbose = 0
 # Example: `cb-sync send @home` uses <HOME_IP>
 # home = "<HOME_IP>"
 # work = "<WORK_IP>"
+
+[daemon]
+# Peers to sync with (names from [targets] section)
+# peers = ["home", "work"]
+
+# Clipboard polling interval in milliseconds (default: 500)
+# poll_interval_ms = 500
+
+# Sync cooldown to prevent loops in milliseconds (default: 2000)
+# sync_cooldown_ms = 2000
+
+# Retry settings for failed sends
+# max_retries = 3
+# retry_delay_ms = 1000
 "#
     }
 }
@@ -275,10 +326,7 @@ office = "10.0.0.2"
             .insert("home".to_string(), "10.0.0.100".to_string());
 
         // Direct address (contains dot, so treated as IP)
-        assert_eq!(
-            targets.resolve("10.0.0.50"),
-            Some("10.0.0.50".to_string())
-        );
+        assert_eq!(targets.resolve("10.0.0.50"), Some("10.0.0.50".to_string()));
 
         // Named target
         assert_eq!(targets.resolve("home"), Some("10.0.0.100".to_string()));
