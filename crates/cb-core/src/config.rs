@@ -12,12 +12,12 @@
 //! verbose = 0
 //!
 //! [encryption]
-//! password = "shared-secret"
+//! password = "<PASSWORD>"
 //! # Or use a key instead:
-//! # key = "base64-encoded-key"
+//! # key = "<BASE64_KEY>"
 //!
 //! [targets]
-//! default = "<TARGET_IP>"
+//! default = "<DEFAULT_IP>"
 //! home = "<HOME_IP>"
 //! work = "<WORK_IP>"
 //! ```
@@ -190,18 +190,18 @@ verbose = 0
 [encryption]
 # Use either password or key, not both
 # Password is hashed to derive the encryption key
-# password = "your-shared-secret"
+# password = "<PASSWORD>"
 
 # Or use a pre-generated key (from `cb-sync keygen`)
-# key = "base64-encoded-key"
+# key = "<BASE64_KEY>"
 
 [targets]
 # Default target host for `cb-sync send`
-# default = "<TARGET_IP>"
+# default = "<DEFAULT_IP>"
 
 # Named targets for easy reference
-# Example: `cb-sync send @home` uses <TARGET_IP>
-# home = "<TARGET_IP>"
+# Example: `cb-sync send @home` uses <HOME_IP>
+# home = "<HOME_IP>"
 # work = "<WORK_IP>"
 "#
     }

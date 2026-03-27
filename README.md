@@ -37,13 +37,13 @@ cargo build --release
 
 ```bash
 # On receiving machine - start listener
-cb-sync -p 'secret' listen
+cb-sync -p '<PASSWORD>' listen
 
 # On sending machine - send clipboard
-cb-sync -p 'secret' send <TARGET_IP>
+cb-sync -p '<PASSWORD>' send <RECEIVER_IP>
 
 # Or send specific text
-cb-sync -p 'secret' send <TARGET_IP> "Hello, World!"
+cb-sync -p '<PASSWORD>' send <RECEIVER_IP> "Hello, World!"
 ```
 
 ## Usage
@@ -56,14 +56,14 @@ cb-sync copy "text"     # Copy to clipboard
 cb-sync paste           # Print clipboard contents
 
 # Remote sync (encrypted)
-cb-sync -p 'password' send <host>      # Send clipboard
-cb-sync -p 'password' receive          # Receive once
-cb-sync -p 'password' listen           # Continuous receive
+cb-sync -p '<PASSWORD>' send <RECEIVER_IP>   # Send clipboard
+cb-sync -p '<PASSWORD>' receive              # Receive once
+cb-sync -p '<PASSWORD>' listen               # Continuous receive
 
 # Image sync
-cb-sync send <host> --image            # Send clipboard image
-cb-sync send <host> -f image.png       # Send image file
-cb-sync receive -o received.png        # Save received image
+cb-sync send <RECEIVER_IP> --image           # Send clipboard image
+cb-sync send <RECEIVER_IP> -f <IMAGE_FILE>   # Send image file
+cb-sync receive -o <OUTPUT_FILE>             # Save received image
 
 # Environment info
 cb-sync info
@@ -75,16 +75,16 @@ All network communication should be encrypted. Two options:
 
 ```bash
 # Option 1: Password-based
-cb-sync -p 'your-password' send <host>
+cb-sync -p '<PASSWORD>' send <RECEIVER_IP>
 
 # Option 2: Key-based (more secure)
-cb-sync keygen                         # Generate key
-cb-sync -k 'base64-key' send <host>
+cb-sync keygen                              # Generate key
+cb-sync -k '<BASE64_KEY>' send <RECEIVER_IP>
 
 # Environment variables also work
-export CB_SYNC_PASSWORD='password'
+export CB_SYNC_PASSWORD='<PASSWORD>'
 # or
-export CB_SYNC_KEY='base64-key'
+export CB_SYNC_KEY='<BASE64_KEY>'
 ```
 
 ### Configuration File
@@ -105,19 +105,19 @@ port = 34812
 timeout_secs = 20
 
 [encryption]
-password = "shared-secret"
-# or: key = "base64-encoded-key"
+password = "<PASSWORD>"
+# or: key = "<BASE64_KEY>"
 
 [targets]
-default = "<TARGET_IP>"
-desktop = "<HOME_IP>"
+default = "<DEFAULT_TARGET_IP>"
+desktop = "<DESKTOP_IP>"
 laptop = "<LAPTOP_IP>"
 ```
 
 Use named targets:
 
 ```bash
-cb-sync send @desktop   # Uses <HOME_IP>
+cb-sync send @desktop   # Uses <DESKTOP_IP>
 cb-sync send @laptop    # Uses <LAPTOP_IP>
 ```
 
@@ -130,6 +130,46 @@ cb-sync send @laptop    # Uses <LAPTOP_IP>
 | Windows | Supported |
 | WSL | Supported |
 | Android | Planned |
+
+## Setup
+
+### Windows Firewall Configuration
+
+To receive clipboard data on Windows, you need to allow incoming connections on port 34812.
+
+**Option 1: PowerShell (Administrator)**
+
+```powershell
+# Allow incoming TCP connections
+New-NetFirewallRule -DisplayName "cb-sync" -Direction Inbound -Protocol TCP -LocalPort 34812 -Action Allow
+
+# Verify the rule
+Get-NetFirewallRule -DisplayName "cb-sync"
+```
+
+**Option 2: netsh (Administrator)**
+
+```cmd
+:: Allow incoming TCP connections
+netsh advfirewall firewall add rule name="cb-sync" dir=in action=allow protocol=tcp localport=34812
+
+:: Verify the rule
+netsh advfirewall firewall show rule name="cb-sync"
+
+:: To remove the rule later
+netsh advfirewall firewall delete rule name="cb-sync"
+```
+
+### Linux Firewall (if enabled)
+
+```bash
+# ufw
+sudo ufw allow 34812/tcp
+
+# firewalld
+sudo firewall-cmd --add-port=34812/tcp --permanent
+sudo firewall-cmd --reload
+```
 
 ## Architecture
 

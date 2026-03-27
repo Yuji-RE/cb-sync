@@ -29,7 +29,8 @@
 //! #[tokio::main]
 //! async fn main() {
 //!     // Send clipboard to another device
-//!     let addr: SocketAddr = "<TARGET_IP>:34812".parse().unwrap();
+//!     // Replace <RECEIVER_IP> with actual IP address
+//!     let addr: SocketAddr = "<RECEIVER_IP>:34812".parse().unwrap();
 //!     sync::send(addr, "Hello from sender!".to_string()).await.unwrap();
 //!
 //!     // Or receive from another device

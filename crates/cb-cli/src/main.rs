@@ -50,7 +50,7 @@ enum Commands {
 
     /// Send clipboard to a remote device
     Send {
-        /// Remote host or named target (e.g., <TARGET_IP>, @home)
+        /// Remote host or named target (e.g., <IP_ADDRESS>, @home)
         host: String,
 
         /// Text to send (uses clipboard if not specified)
