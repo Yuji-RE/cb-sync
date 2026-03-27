@@ -1,227 +1,188 @@
 # cb-sync
 
-クロスプラットフォームのクリップボード同期ツール（Rust）
+Cross-platform clipboard synchronization tool written in Rust.
 
-## 概要
+## Overview
 
-Windows/WSL/Linux/Android間でクリップボードを安全に共有するツール。
-常時同期ではなく、コピー後20秒間のみ同期することでセキュリティとプライバシーを確保。
+Securely share clipboard contents between Windows/WSL/Linux machines over LAN. Unlike always-on clipboard managers, cb-sync only syncs when explicitly triggered, giving you full control over what gets shared.
 
-## インストール
+**Key Features:**
+- Text and image clipboard sync
+- End-to-end encryption (ChaCha20-Poly1305)
+- Cross-platform: Linux (Wayland/X11), Windows, WSL
+- Simple CLI interface
+- No cloud, no accounts - direct P2P over LAN
 
-### NixOS / Nix
+## Installation
+
+### From Source
 
 ```bash
-# 開発環境に入る
-nix-shell
-
-# ビルド
-cargo build --release
-
-# インストール（~/.cargo/bin/）
+# Requires Rust toolchain
 cargo install --path crates/cb-cli
+
+# Or build manually
+cargo build --release
+# Binary at target/release/cb-sync
 ```
 
-### その他のLinux
+### NixOS
 
 ```bash
-# Rustが必要
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# ビルド
+nix-shell  # Enter dev environment
 cargo build --release
 ```
 
-## 使用方法
+## Quick Start
 
 ```bash
-# ヘルプ
-cb-sync --help
+# On receiving machine - start listener
+cb-sync -p 'secret' listen
 
-# ローカルクリップボード操作
-cb-sync copy "テキスト"   # クリップボードにコピー
-cb-sync paste              # クリップボードから出力
+# On sending machine - send clipboard
+cb-sync -p 'secret' send <TARGET_IP>
 
-# リモート同期（平文）
-cb-sync send <TARGET_IP>        # クリップボードを送信
-cb-sync send <TARGET_IP> "text" # テキストを直接送信
-cb-sync receive                    # 受信待機（1回）
-cb-sync listen                     # 継続受信
+# Or send specific text
+cb-sync -p 'secret' send <TARGET_IP> "Hello, World!"
+```
 
-# リモート同期（暗号化）
-cb-sync -p 'password' send <TARGET_IP>
-cb-sync -p 'password' receive
+## Usage
 
-# 暗号化キー生成
-cb-sync keygen
-cb-sync -k 'base64key...' send <TARGET_IP>
+### Basic Commands
 
-# 環境情報
+```bash
+# Local clipboard operations
+cb-sync copy "text"     # Copy to clipboard
+cb-sync paste           # Print clipboard contents
+
+# Remote sync (encrypted)
+cb-sync -p 'password' send <host>      # Send clipboard
+cb-sync -p 'password' receive          # Receive once
+cb-sync -p 'password' listen           # Continuous receive
+
+# Image sync
+cb-sync send <host> --image            # Send clipboard image
+cb-sync send <host> -f image.png       # Send image file
+cb-sync receive -o received.png        # Save received image
+
+# Environment info
 cb-sync info
-
-# 画像同期
-cb-sync send <TARGET_IP> --image     # クリップボードの画像を送信
-cb-sync send <TARGET_IP> -f image.png # ファイルから画像を送信
-cb-sync receive -o received.png         # 画像を受信してファイルに保存
-
-# 設定ファイル
-cb-sync config init   # 設定ファイルを作成
-cb-sync config show   # 現在の設定を表示
-cb-sync config path   # 設定ファイルのパスを表示
 ```
 
-### 設定ファイル
+### Encryption
 
-`~/.config/cb-sync/config.toml` で設定を保存できます。
+All network communication should be encrypted. Two options:
 
 ```bash
-# 設定ファイルを作成
-cb-sync config init
+# Option 1: Password-based
+cb-sync -p 'your-password' send <host>
+
+# Option 2: Key-based (more secure)
+cb-sync keygen                         # Generate key
+cb-sync -k 'base64-key' send <host>
+
+# Environment variables also work
+export CB_SYNC_PASSWORD='password'
+# or
+export CB_SYNC_KEY='base64-key'
 ```
 
-設定ファイルの例:
+### Configuration File
+
+Create a config file at `~/.config/cb-sync/config.toml`:
+
+```bash
+cb-sync config init   # Create template
+cb-sync config show   # Show current config
+cb-sync config path   # Show config file path
+```
+
+Example configuration:
 
 ```toml
 [general]
 port = 34812
 timeout_secs = 20
-verbose = 0
 
 [encryption]
 password = "shared-secret"
-# または key = "base64キー"
+# or: key = "base64-encoded-key"
 
 [targets]
 default = "<TARGET_IP>"
-home = "<HOME_IP>"
-work = "<WORK_IP>"
+desktop = "<HOME_IP>"
+laptop = "<LAPTOP_IP>"
 ```
 
-名前付きターゲットを使用:
+Use named targets:
 
 ```bash
-# @home は config の [targets] home = "..." を参照
-cb-sync send @home
-cb-sync send @work
+cb-sync send @desktop   # Uses <HOME_IP>
+cb-sync send @laptop    # Uses <LAPTOP_IP>
 ```
 
-### 暗号化
+## Platform Support
 
-cb-syncはChaCha20-Poly1305による暗号化をサポート。
+| Platform | Status |
+|----------|--------|
+| Linux (Wayland) | Supported |
+| Linux (X11) | Supported |
+| Windows | Supported |
+| WSL | Supported |
+| Android | Planned |
 
-```bash
-# パスワードで暗号化
-cb-sync -p 'shared-secret' send <TARGET_IP>
-cb-sync -p 'shared-secret' listen
-
-# またはキーを生成して使用
-cb-sync keygen  # => base64エンコードされたキーを出力
-cb-sync -k 'キー' send <TARGET_IP>
-
-# 環境変数も使用可能
-export CB_SYNC_PASSWORD='shared-secret'
-# または
-export CB_SYNC_KEY='base64キー'
-cb-sync send <TARGET_IP>
-```
-
-### 使用例: 2台のPC間でクリップボード共有
-
-```bash
-# PC-A (受信側): <TARGET_IP>
-cb-sync -p 'secret123' listen
-
-# PC-B (送信側)
-cb-sync -p 'secret123' send <TARGET_IP>
-# => PC-Aのクリップボードに自動コピーされる
-```
-
-## 対応プラットフォーム
-
-| プラットフォーム | 状態 |
-|------------------|------|
-| Linux (Wayland)  | 対応 |
-| Linux (X11)      | 対応 |
-| Windows          | 対応 |
-| Android          | 未実装 |
-
-## プロジェクト構成
+## Architecture
 
 ```
 cb-sync/
-├── Cargo.toml           # ワークスペース定義
-├── shell.nix            # NixOS開発環境
 ├── crates/
-│   ├── cb-core/         # コアライブラリ
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── clipboard.rs  # クリップボード抽象化
-│   │       ├── config.rs     # 設定ファイル
-│   │       ├── crypto.rs     # 暗号化
-│   │       ├── protocol.rs   # メッセージ型
-│   │       ├── sync.rs       # TCP送受信
-│   │       └── error.rs      # エラー型
-│   └── cb-cli/          # CLIアプリケーション
-│       └── src/
-│           └── main.rs
+│   ├── cb-core/         # Core library
+│   │   ├── clipboard.rs # Platform clipboard abstraction
+│   │   ├── config.rs    # Configuration file handling
+│   │   ├── crypto.rs    # ChaCha20-Poly1305 encryption
+│   │   ├── protocol.rs  # Message types (JSON)
+│   │   └── sync.rs      # TCP send/receive
+│   └── cb-cli/          # CLI application
 └── docs/
-    ├── PLAN.md          # 開発計画
-    ├── PROGRESS.md      # 進捗ログ
-    └── DECISIONS.md     # 設計決定記録
+    └── PLAN.md          # Development roadmap
 ```
 
-## 技術仕様
+## Technical Details
 
-### プロトコル
+- **Protocol**: TCP on port 34812 (configurable)
+- **Encryption**: ChaCha20-Poly1305 (AEAD)
+- **Message Format**: JSON
+- **Timeout**: 20 seconds (configurable)
 
-- TCP通信（デフォルトポート: 34812）
-- JSON形式メッセージ
-- 20秒タイムアウト
-- ChaCha20-Poly1305暗号化（オプション）
-
-### メッセージ形式
+### Message Types
 
 ```json
-// 平文
-{"type":"clipboard","text":"内容","timestamp":1234567890}
+// Text
+{"type":"clipboard","text":"content","timestamp":1234567890}
 
-// 暗号化
-{"type":"encrypted","data":"base64暗号文","timestamp":1234567890}
+// Image (base64 encoded)
+{"type":"image","data":"base64...","timestamp":1234567890}
 
-// 応答
+// Encrypted (wraps any message)
+{"type":"encrypted","data":"base64-ciphertext","content_type":"text","timestamp":1234567890}
+
+// Acknowledgment
 {"type":"ack"}
 ```
 
-## ロードマップ
+## Security
 
-### Phase 1（MVP）- 完了
-- [x] テキスト同期
-- [x] Linux (Wayland/X11) 対応
-- [x] LAN内P2P通信
-- [x] 20秒タイムアウト
-- [x] 暗号化（ChaCha20-Poly1305）
+- **Explicit activation**: No background daemon - you control when to sync
+- **Encryption**: ChaCha20-Poly1305 for all network traffic
+- **LAN only**: No internet connectivity required
+- **20s timeout**: Listener auto-closes to minimize exposure
 
-### Phase 2 - 完了
-- [x] 設定ファイル
-- [x] Windows対応
-- [x] 画像同期
+## Future Roadmap
 
-### Phase 3
-- [ ] OS間パス翻訳
-- [ ] Android対応
+- [ ] OS path translation (Linux `~` <-> Windows `%USERPROFILE%`)
+- [ ] Android support
+- [ ] AI-powered clipboard transformation pipeline
 
-### Phase 4
-- [ ] AI変換パイプライン
-- [ ] プラグインシステム
-
-## セキュリティ設計
-
-- 常時常駐しない（明示的に起動）
-- 20秒後に接続タイムアウト
-- LAN内のみ（インターネット経由なし）
-- ChaCha20-Poly1305暗号化（-p/-k オプション）
-- パスワード/キーは環境変数でも指定可能
-
-## ライセンス
+## License
 
 MIT
