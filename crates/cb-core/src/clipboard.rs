@@ -326,6 +326,94 @@ impl Clipboard for X11Clipboard {
     }
 }
 
+/// WSL clipboard implementation using clip.exe and powershell.exe
+#[derive(Debug, Default)]
+pub struct WslClipboard;
+
+impl WslClipboard {
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Check if WSL clipboard tools are available
+    pub fn is_available() -> bool {
+        // Check if clip.exe exists (should be in /mnt/c/Windows/System32/)
+        Command::new("clip.exe")
+            .arg("/?")
+            .output()
+            .map(|o| o.status.success() || !o.stderr.is_empty()) // clip.exe returns help on /?
+            .unwrap_or(false)
+    }
+}
+
+impl Clipboard for WslClipboard {
+    fn read_text(&self) -> Result<String> {
+        // Use PowerShell to read clipboard
+        let output = Command::new("powershell.exe")
+            .args(["-NoProfile", "-Command", "Get-Clipboard"])
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ClipboardError::CommandFailed(format!(
+                "powershell Get-Clipboard failed: {}",
+                stderr
+            )));
+        }
+
+        let text = String::from_utf8(output.stdout)?;
+        // PowerShell adds a trailing newline, remove it
+        let text = text.trim_end_matches(['\r', '\n']).to_string();
+
+        if text.is_empty() {
+            return Err(ClipboardError::Empty);
+        }
+
+        Ok(text)
+    }
+
+    fn write_text(&self, text: &str) -> Result<()> {
+        use std::io::Write;
+        use std::process::Stdio;
+
+        // Use clip.exe to write to clipboard
+        let mut child = Command::new("clip.exe").stdin(Stdio::piped()).spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(text.as_bytes())?;
+        }
+
+        let status = child.wait()?;
+        if !status.success() {
+            return Err(ClipboardError::CommandFailed(
+                "clip.exe exited with non-zero status".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn read_image(&self) -> Result<Vec<u8>> {
+        // TODO: Implement WSL image clipboard using PowerShell
+        // PowerShell can read images but conversion to PNG is complex
+        Err(ClipboardError::CommandFailed(
+            "WSL image clipboard not yet implemented".to_string(),
+        ))
+    }
+
+    fn write_image(&self, _data: &[u8]) -> Result<()> {
+        // TODO: Implement WSL image clipboard
+        Err(ClipboardError::CommandFailed(
+            "WSL image clipboard not yet implemented".to_string(),
+        ))
+    }
+
+    fn has_image(&self) -> bool {
+        // TODO: Check if clipboard contains image via PowerShell
+        false
+    }
+}
+
 /// Windows clipboard implementation using clipboard-win crate
 #[cfg(target_os = "windows")]
 #[derive(Debug, Default)]
@@ -403,7 +491,17 @@ pub enum DisplayServer {
     Wayland,
     X11,
     Windows,
+    Wsl,
     Unknown,
+}
+
+/// Check if running inside WSL (Windows Subsystem for Linux)
+fn is_wsl() -> bool {
+    if let Ok(version) = std::fs::read_to_string("/proc/version") {
+        let version_lower = version.to_lowercase();
+        return version_lower.contains("microsoft") || version_lower.contains("wsl");
+    }
+    false
 }
 
 /// Detect the current display server
@@ -415,6 +513,11 @@ pub fn detect_display_server() -> DisplayServer {
 
     #[cfg(not(target_os = "windows"))]
     {
+        // Check for WSL first (before Wayland/X11 since those env vars may be set but tools don't work)
+        if is_wsl() {
+            return DisplayServer::Wsl;
+        }
+
         // Check for Wayland
         if std::env::var("WAYLAND_DISPLAY").is_ok() {
             return DisplayServer::Wayland;
@@ -434,13 +537,16 @@ pub fn create_clipboard() -> Box<dyn Clipboard> {
     match detect_display_server() {
         DisplayServer::Wayland => Box::new(WaylandClipboard::new()),
         DisplayServer::X11 => Box::new(X11Clipboard::new()),
+        DisplayServer::Wsl => Box::new(WslClipboard::new()),
         #[cfg(target_os = "windows")]
         DisplayServer::Windows => Box::new(WindowsClipboard::new()),
         #[cfg(not(target_os = "windows"))]
         DisplayServer::Windows => Box::new(WaylandClipboard::new()), // fallback
         DisplayServer::Unknown => {
-            // Try Wayland first, then X11
-            if WaylandClipboard::is_available() {
+            // Try WSL first, then Wayland, then X11
+            if is_wsl() {
+                Box::new(WslClipboard::new())
+            } else if WaylandClipboard::is_available() {
                 Box::new(WaylandClipboard::new())
             } else {
                 Box::new(X11Clipboard::new())
@@ -468,6 +574,11 @@ mod tests {
     fn windows_clipboard_can_be_created() {
         let _clipboard = WindowsClipboard::new();
         assert!(WindowsClipboard::is_available());
+    }
+
+    #[test]
+    fn wsl_clipboard_can_be_created() {
+        let _clipboard = WslClipboard::new();
     }
 
     #[test]
