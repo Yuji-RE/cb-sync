@@ -247,8 +247,8 @@ verbose = 1
 password = "test-password"
 
 [targets]
-default = "<EXAMPLE_IP>"
-office = "10.0.0.1"
+default = "10.0.0.1"
+office = "10.0.0.2"
 "#;
 
         let config: Config = toml::from_str(toml).unwrap();
@@ -260,10 +260,10 @@ office = "10.0.0.1"
             Some("test-password".to_string())
         );
         assert!(config.encryption.is_enabled());
-        assert_eq!(config.targets.default, Some("<EXAMPLE_IP>".to_string()));
+        assert_eq!(config.targets.default, Some("10.0.0.1".to_string()));
         assert_eq!(
             config.targets.named.get("office"),
-            Some(&"10.0.0.1".to_string())
+            Some(&"10.0.0.2".to_string())
         );
     }
 
@@ -272,16 +272,16 @@ office = "10.0.0.1"
         let mut targets = TargetConfig::default();
         targets
             .named
-            .insert("home".to_string(), "<TARGET_IP>".to_string());
+            .insert("home".to_string(), "10.0.0.100".to_string());
 
-        // Direct address
+        // Direct address (contains dot, so treated as IP)
         assert_eq!(
-            targets.resolve("<HOME_IP>"),
-            Some("<HOME_IP>".to_string())
+            targets.resolve("10.0.0.50"),
+            Some("10.0.0.50".to_string())
         );
 
         // Named target
-        assert_eq!(targets.resolve("home"), Some("<TARGET_IP>".to_string()));
+        assert_eq!(targets.resolve("home"), Some("10.0.0.100".to_string()));
 
         // Unknown name
         assert_eq!(targets.resolve("unknown"), None);
