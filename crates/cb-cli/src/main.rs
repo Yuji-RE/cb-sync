@@ -567,25 +567,24 @@ fn handle_received_content(content: ClipboardContent, output_path: Option<&PathB
 }
 
 /// Resolve a target string to a socket address
-/// Supports: IP address, hostname, or named target (prefixed with @)
+/// Supports: IP address, hostname, or named target (with or without @ prefix)
 fn resolve_target(target: &str, config: &Config, default_port: u16) -> Result<SocketAddr> {
-    let host = if let Some(name) = target.strip_prefix('@') {
-        // Named target from config
-        config
-            .targets
-            .named
-            .get(name)
-            .cloned()
-            .with_context(|| format!("Unknown target '{}'. Check your config file.", name))?
-    } else if target == "default" || target.is_empty() {
+    // Strip @ prefix if present
+    let name = target.strip_prefix('@').unwrap_or(target);
+
+    let host = if name == "default" || name.is_empty() {
         // Default target
         config
             .targets
             .default
             .clone()
             .context("No default target configured. Use `cb-sync config init` to set one.")?
+    } else if let Some(addr) = config.targets.named.get(name) {
+        // Named target from config
+        addr.clone()
     } else {
-        target.to_string()
+        // Treat as IP address or hostname
+        name.to_string()
     };
 
     parse_addr(&host, default_port)
