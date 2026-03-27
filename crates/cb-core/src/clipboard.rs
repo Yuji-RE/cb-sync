@@ -513,19 +513,20 @@ pub fn detect_display_server() -> DisplayServer {
 
     #[cfg(not(target_os = "windows"))]
     {
-        // Check for WSL first (before Wayland/X11 since those env vars may be set but tools don't work)
-        if is_wsl() {
-            return DisplayServer::Wsl;
-        }
-
-        // Check for Wayland
-        if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        // Check for Wayland first - prefer native display servers even on WSL (e.g., WSLg)
+        // because they provide better functionality (image support, etc.)
+        if std::env::var("WAYLAND_DISPLAY").is_ok() && WaylandClipboard::is_available() {
             return DisplayServer::Wayland;
         }
 
         // Check for X11
-        if std::env::var("DISPLAY").is_ok() {
+        if std::env::var("DISPLAY").is_ok() && X11Clipboard::is_available() {
             return DisplayServer::X11;
+        }
+
+        // Fallback to WSL clipboard if running in WSL without working display servers
+        if is_wsl() {
+            return DisplayServer::Wsl;
         }
 
         DisplayServer::Unknown

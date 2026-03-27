@@ -246,19 +246,29 @@ where
                 let mut reader = BufReader::new(limited);
                 let mut line = String::new();
 
-                if reader.read_line(&mut line).await.is_ok() && !line.is_empty()
-                    && let Ok(msg) = Message::from_bytes(line.as_bytes())
-                {
-                    if let Ok(content) = extract_content(&msg, key) {
-                        info!("Received {:?} from {}", content_type(&content), peer);
-                        // Send ack
-                        if let Ok(ack) = Message::ack().to_bytes() {
-                            let _ = stream.write_all(&ack).await;
+                // Apply timeout to read to prevent DoS from stalling clients
+                let read_result =
+                    tokio::time::timeout(CLIPBOARD_TIMEOUT, reader.read_line(&mut line)).await;
+
+                match read_result {
+                    Ok(Ok(_)) if !line.is_empty() => {
+                        if let Ok(msg) = Message::from_bytes(line.as_bytes()) {
+                            if let Ok(content) = extract_content(&msg, key) {
+                                info!("Received {:?} from {}", content_type(&content), peer);
+                                // Send ack
+                                if let Ok(ack) = Message::ack().to_bytes() {
+                                    let _ = stream.write_all(&ack).await;
+                                }
+                                on_receive(content);
+                            } else {
+                                warn!("Failed to decrypt message from {}", peer);
+                            }
                         }
-                        on_receive(content);
-                    } else {
-                        warn!("Failed to decrypt message from {}", peer);
                     }
+                    Err(_) => {
+                        debug!("Read timeout from {}, dropping connection", peer);
+                    }
+                    _ => {}
                 }
             }
             Ok(Err(e)) => {
