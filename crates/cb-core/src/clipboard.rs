@@ -348,9 +348,13 @@ impl WslClipboard {
 
 impl Clipboard for WslClipboard {
     fn read_text(&self) -> Result<String> {
-        // Use PowerShell to read clipboard
+        // Use PowerShell to read clipboard with explicit UTF-8 encoding
         let output = Command::new("powershell.exe")
-            .args(["-NoProfile", "-Command", "Get-Clipboard"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard",
+            ])
             .output()?;
 
         if !output.status.success() {
@@ -361,7 +365,8 @@ impl Clipboard for WslClipboard {
             )));
         }
 
-        let text = String::from_utf8(output.stdout)?;
+        // Handle potential encoding issues gracefully
+        let text = String::from_utf8_lossy(&output.stdout);
         // PowerShell adds a trailing newline, remove it
         let text = text.trim_end_matches(['\r', '\n']).to_string();
 
@@ -376,8 +381,15 @@ impl Clipboard for WslClipboard {
         use std::io::Write;
         use std::process::Stdio;
 
-        // Use clip.exe to write to clipboard
-        let mut child = Command::new("clip.exe").stdin(Stdio::piped()).spawn()?;
+        // Use PowerShell Set-Clipboard for proper UTF-8 support
+        let mut child = Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "$input | Set-Clipboard",
+            ])
+            .stdin(Stdio::piped())
+            .spawn()?;
 
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(text.as_bytes())?;
@@ -386,7 +398,7 @@ impl Clipboard for WslClipboard {
         let status = child.wait()?;
         if !status.success() {
             return Err(ClipboardError::CommandFailed(
-                "clip.exe exited with non-zero status".to_string(),
+                "PowerShell Set-Clipboard failed".to_string(),
             ));
         }
 
