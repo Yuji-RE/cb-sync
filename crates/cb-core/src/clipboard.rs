@@ -381,28 +381,27 @@ impl Clipboard for WslClipboard {
     }
 
     fn write_text(&self, text: &str) -> Result<()> {
-        use std::io::Write;
-        use std::process::Stdio;
+        use base64::Engine;
 
-        // Use PowerShell Set-Clipboard with explicit UTF-8 input encoding
-        let mut child = Command::new(POWERSHELL_PATH)
-            .args([
-                "-NoProfile",
-                "-Command",
-                "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; $input | Set-Clipboard",
-            ])
-            .stdin(Stdio::piped())
-            .spawn()?;
+        // Encode text as Base64 to avoid encoding issues with PowerShell stdin
+        let b64 = base64::engine::general_purpose::STANDARD.encode(text.as_bytes());
 
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin.write_all(text.as_bytes())?;
-        }
+        // Decode Base64 in PowerShell and set clipboard
+        let cmd = format!(
+            "[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{}')) | Set-Clipboard",
+            b64
+        );
 
-        let status = child.wait()?;
-        if !status.success() {
-            return Err(ClipboardError::CommandFailed(
-                "PowerShell Set-Clipboard failed".to_string(),
-            ));
+        let output = Command::new(POWERSHELL_PATH)
+            .args(["-NoProfile", "-Command", &cmd])
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ClipboardError::CommandFailed(format!(
+                "PowerShell Set-Clipboard failed: {}",
+                stderr
+            )));
         }
 
         Ok(())
