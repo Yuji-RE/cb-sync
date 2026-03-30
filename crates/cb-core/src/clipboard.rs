@@ -346,10 +346,13 @@ impl WslClipboard {
     }
 }
 
+/// PowerShell executable path for WSL
+const POWERSHELL_PATH: &str = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe";
+
 impl Clipboard for WslClipboard {
     fn read_text(&self) -> Result<String> {
         // Use PowerShell to read clipboard with explicit UTF-8 encoding
-        let output = Command::new("powershell.exe")
+        let output = Command::new(POWERSHELL_PATH)
             .args([
                 "-NoProfile",
                 "-Command",
@@ -382,12 +385,8 @@ impl Clipboard for WslClipboard {
         use std::process::Stdio;
 
         // Use PowerShell Set-Clipboard for proper UTF-8 support
-        let mut child = Command::new("powershell.exe")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "$input | Set-Clipboard",
-            ])
+        let mut child = Command::new(POWERSHELL_PATH)
+            .args(["-NoProfile", "-Command", "$input | Set-Clipboard"])
             .stdin(Stdio::piped())
             .spawn()?;
 
