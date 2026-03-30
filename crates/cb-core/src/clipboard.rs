@@ -384,9 +384,13 @@ impl Clipboard for WslClipboard {
         use std::io::Write;
         use std::process::Stdio;
 
-        // Use PowerShell Set-Clipboard for proper UTF-8 support
+        // Use PowerShell Set-Clipboard with explicit UTF-8 input encoding
         let mut child = Command::new(POWERSHELL_PATH)
-            .args(["-NoProfile", "-Command", "$input | Set-Clipboard"])
+            .args([
+                "-NoProfile",
+                "-Command",
+                "[Console]::InputEncoding = [System.Text.Encoding]::UTF8; $input | Set-Clipboard",
+            ])
             .stdin(Stdio::piped())
             .spawn()?;
 
