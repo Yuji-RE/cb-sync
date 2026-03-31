@@ -131,6 +131,30 @@ cb-sync send @laptop    # Uses <LAPTOP_IP>
 | WSL | Supported |
 | Android | Planned |
 
+### WSL Network Setup
+
+WSL2 uses NAT networking, so peers need to connect to your **Windows IP**, not the WSL internal IP. Port forwarding is required:
+
+```powershell
+# Run as Administrator on Windows
+# Get WSL IP (run in WSL terminal first: ip addr show eth0)
+netsh interface portproxy add v4tov4 listenport=34812 listenaddress=0.0.0.0 connectport=34812 connectaddress=<WSL_IP>
+
+# Verify
+netsh interface portproxy show all
+
+# To remove later
+netsh interface portproxy delete v4tov4 listenport=34812 listenaddress=0.0.0.0
+```
+
+On the peer machine, use the Windows host IP as the target:
+
+```toml
+# ~/.config/cb-sync/config.toml (on peer)
+[targets]
+wsl = "<WINDOWS_HOST_IP>"
+```
+
 ## Setup
 
 ### Windows Firewall Configuration
