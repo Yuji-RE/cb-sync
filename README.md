@@ -188,7 +188,7 @@ cb-sync/
 
 ---
 
-## My Setup (OWNER)
+## My Setup
 
 NixOS + WSL configuration for reference.
 
