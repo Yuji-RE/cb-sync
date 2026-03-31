@@ -1,6 +1,12 @@
 /target/
 Cargo.lock
 
+# Personal/workflow files (not needed for building)
+.claude/
+CLAUDE.md
+todo.md
+docs/
+
 # Local settings (may contain personal paths)
 .claude/settings.local.json
 
