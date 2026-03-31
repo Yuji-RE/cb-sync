@@ -1,0 +1,6 @@
+[Unit]
+Description=Notify on cb-sync failure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env notify-send -u critical "cb-sync stopped" "Service %i has failed. Check: journalctl --user -u cb-sync"

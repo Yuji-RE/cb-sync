@@ -3,6 +3,7 @@ Description=cb-sync clipboard synchronization daemon
 Documentation=https://github.com/<YOUR_USERNAME>/cb-sync
 After=network.target graphical-session.target
 Wants=graphical-session.target
+OnFailure=cb-sync-notify@%n.service
 
 [Service]
 Type=simple

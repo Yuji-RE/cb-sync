@@ -11,7 +11,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_FILE="cb-sync.service"
 SERVICE_DIR="$HOME/.config/systemd/user"
 
 echo "Installing cb-sync systemd user service..."
@@ -19,8 +18,9 @@ echo "Installing cb-sync systemd user service..."
 # Create systemd user directory if needed
 mkdir -p "$SERVICE_DIR"
 
-# Copy service file
-cp "$SCRIPT_DIR/$SERVICE_FILE" "$SERVICE_DIR/"
+# Copy service files
+cp "$SCRIPT_DIR/cb-sync.service" "$SERVICE_DIR/"
+cp "$SCRIPT_DIR/cb-sync-notify@.service" "$SERVICE_DIR/"
 
 # Reload systemd daemon
 systemctl --user daemon-reload
