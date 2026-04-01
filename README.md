@@ -137,6 +137,26 @@ wsl-machine = "<WINDOWS_HOST_IP>"
 - **Loop prevention**: Won't re-broadcast received content
 - **LAN only**: No internet required
 
+### Recommendations
+
+**Use `keygen` instead of password** (more secure):
+```bash
+cb-sync keygen  # Generate random 256-bit key
+```
+
+Then use in config:
+```toml
+[encryption]
+key = "<GENERATED_KEY>"  # Instead of password
+```
+
+Password-based keys use a fixed salt for convenience, making them weaker against offline attacks. Generated keys are cryptographically random and recommended for higher security.
+
+**Bind address**: Default is `0.0.0.0` (all interfaces). On multi-homed systems or VPNs, consider binding to a specific LAN interface:
+```bash
+cb-sync daemon --bind 192.168.1.100
+```
+
 ## Manual Commands
 
 For one-off transfers without running the daemon:

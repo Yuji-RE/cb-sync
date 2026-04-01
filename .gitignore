@@ -1,5 +1,4 @@
 /target/
-Cargo.lock
 
 # Personal/workflow files (not needed for building)
 .claude/
