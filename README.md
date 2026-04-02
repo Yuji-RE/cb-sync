@@ -157,6 +157,12 @@ Password-based keys use a fixed salt for convenience, making them weaker against
 cb-sync daemon --bind 192.168.1.100
 ```
 
+**Gaming**: Some games (e.g., Apex Legends) may experience server connection issues while the daemon is running. Stop the daemon before playing:
+```bash
+systemctl --user stop cb-sync   # Linux
+pkill -x cb-sync                # WSL/manual
+```
+
 ## Manual Commands
 
 For one-off transfers without running the daemon:
